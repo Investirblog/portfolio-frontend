@@ -116,7 +116,6 @@
   .pos-ticker-line { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text3); margin-top:2px; }
   .badge { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; padding:2px 8px; border-radius:3px; margin-top:5px; }
   .locked { color:var(--text2); font-style:italic; }
-  .locked-row { opacity:0.7; }
   .locked-sub { color:var(--text3); font-size:11px; margin-top:2px; }
   .badge-screener { background:rgba(108,142,255,0.15); color:var(--accent2); }
   .badge-macroetf  { background:rgba(184,240,74,0.12); color:var(--accent); }
@@ -349,6 +348,7 @@ function drawDonut(positions){
 function renderPos(positions){
   const body=document.getElementById('pos-body');
   if(!positions.length){body.innerHTML='<div class="error">Aucune position active pour le moment.</div>';return;}
+  // Compteur pour numéroter les actions screener masquées
   let screenerCount=0;
   body.innerHTML=positions.map((p,i)=>{
     const up=p.pnl_pct>=0;
@@ -357,20 +357,22 @@ function renderPos(positions){
       ?'<span class="badge badge-screener">Screener</span>'
       :'<span class="badge badge-macroetf">MacroETF</span>';
 
-    if(isScreener && !p.is_public){
+    if(isScreener){
       screenerCount++;
-      return `<div class="pos-row locked-row" style="animation-delay:${i*0.06}s">
+      // Action masquée — nom et ticker cachés
+      return `<div class="pos-row" style="animation-delay:${i*0.06}s">
         <div>
-          <div class="pos-name-main locked">🔒 Réservé aux abonnés</div>
-          <div class="pos-ticker-line locked-sub">Action screener — <a href="https://www.investir.blog/s/premium" style="color:var(--accent);text-decoration:none;">S'abonner pour voir</a></div>
+          <div class="pos-name-main locked">🔒 Action Screener #${screenerCount}</div>
+          <div class="pos-ticker-line locked-sub">Ticker réservé aux abonnés</div>
           ${src}
         </div>
-        <div class="pos-num" style="color:var(--text3)">—</div>
-        <div class="pnl" style="color:var(--text3)">—</div>
+        <div class="pos-num">—</div>
+        <div class="pnl">—</div>
         <div><div class="wbar-wrap"><div class="wbar"><div class="wfill" style="width:${Math.min(p.weight_actual||0,100)}%"></div></div><span class="wpct">${f2(p.weight_actual||0)} %</span></div></div>
         <div style="font-size:12px;color:var(--text3)">Action</div>
       </div>`;
     } else {
+      // ETF macroETF — visible
       const name=p.name.length>28?p.name.slice(0,28)+'…':p.name;
       return `<div class="pos-row" style="animation-delay:${i*0.06}s">
         <div>
@@ -381,7 +383,7 @@ function renderPos(positions){
         <div class="pos-num">${fusd(p.current_price)}</div>
         <div class="pnl ${up?'up':'dn'}">${fpct(p.pnl_pct)}</div>
         <div><div class="wbar-wrap"><div class="wbar"><div class="wfill" style="width:${Math.min(p.weight_actual||0,100)}%"></div></div><span class="wpct">${f2(p.weight_actual||0)} %</span></div></div>
-        <div style="font-size:12px;color:var(--text3)">${p.asset_type==='etf'?'ETF':'Action'}</div>
+        <div style="font-size:12px;color:var(--text3)">ETF</div>
       </div>`;
     }
   }).join('');
