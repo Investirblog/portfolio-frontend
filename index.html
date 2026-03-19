@@ -115,6 +115,8 @@
   .pos-name-main { font-size:14px; font-weight:600; color:var(--text); }
   .pos-ticker-line { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text3); margin-top:2px; }
   .badge { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; padding:2px 8px; border-radius:3px; margin-top:5px; }
+  .locked { color:var(--text2); font-style:italic; }
+  .locked-sub { color:var(--text3); font-size:11px; margin-top:2px; }
   .badge-screener { background:rgba(108,142,255,0.15); color:var(--accent2); }
   .badge-macroetf  { background:rgba(184,240,74,0.12); color:var(--accent); }
   .pos-num { font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--text); }
@@ -194,7 +196,7 @@
   <div class="logo">investir<em>.</em>blog — Portefeuille Modèle</div>
   <div class="header-right">
     <div class="live-badge"><div class="live-dot"></div>Mis à jour quotidiennement</div>
-    <a href="https://investir.blog" class="btn-sub">S'abonner</a>
+    <a href="https://www.investir.blog/s/premium" class="btn-sub">S'abonner</a>
   </div>
 </header>
 
@@ -273,7 +275,7 @@
         <li>Alertes email à chaque mouvement</li>
         <li>Historique complet des décisions</li>
       </ul>
-      <a href="https://investir.blog" class="cta-btn">Accéder — S'abonner</a>
+      <a href="https://www.investir.blog/s/premium" class="cta-btn">Accéder — S'abonner</a>
     </div>
 
     <div class="s-card">
@@ -297,7 +299,7 @@
 
 <footer>
   <span>© 2026 investir.blog — Portefeuille hypothétique. Aucun conseil en investissement.</span>
-  <span><a href="https://investir.blog">Newsletter</a> · <a href="https://macroetf.com">MacroETF</a></span>
+  <span><a href="https://www.investir.blog/s/premium">Newsletter</a> · <a href="https://macroetf.com">MacroETF</a></span>
 </footer>
 
 <script>
@@ -328,21 +330,62 @@ function drawPerfEmpty(){
 function drawDonut(positions){
   const ctx=document.getElementById('donutChart').getContext('2d');
   if(donut)donut.destroy();
-  const labels=positions.map(p=>p.ticker);
+  let screenerCount=0;
+  const labels=positions.map(p=>{
+    if(p.source==='screener'){screenerCount++;return `Action #${screenerCount}`;}
+    return p.ticker;
+  });
   const data=positions.map(p=>p.weight_actual||0);
   const colors=positions.map((_,i)=>COLORS[i%COLORS.length]);
   donut=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0,hoverOffset:6}]},options:{responsive:true,cutout:'74%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1e27',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,bodyFont:{family:'JetBrains Mono',size:11},callbacks:{label:c=>`  ${c.label} : ${f2(c.parsed)} %`}}}}});
-  document.getElementById('donut-leg').innerHTML=positions.map((p,i)=>`<div class="d-item"><div class="d-left"><div class="d-dot" style="background:${colors[i]}"></div><span class="d-name">${p.ticker}</span></div><span class="d-pct">${f2(p.weight_actual||0)} %</span></div>`).join('');
+  screenerCount=0;
+  document.getElementById('donut-leg').innerHTML=positions.map((p,i)=>{
+    const label=p.source==='screener'?(++screenerCount,`🔒 Action #${screenerCount}`):p.ticker;
+    return `<div class="d-item"><div class="d-left"><div class="d-dot" style="background:${colors[i]}"></div><span class="d-name">${label}</span></div><span class="d-pct">${f2(p.weight_actual||0)} %</span></div>`;
+  }).join('');
 }
 
 function renderPos(positions){
   const body=document.getElementById('pos-body');
   if(!positions.length){body.innerHTML='<div class="error">Aucune position active pour le moment.</div>';return;}
+  // Compteur pour numéroter les actions screener masquées
+  let screenerCount=0;
   body.innerHTML=positions.map((p,i)=>{
     const up=p.pnl_pct>=0;
-    const name=p.name.length>28?p.name.slice(0,28)+'…':p.name;
-    const src=p.source==='screener'?'<span class="badge badge-screener">Screener</span>':p.source==='macroetf'?'<span class="badge badge-macroetf">MacroETF</span>':'';
-    return `<div class="pos-row" style="animation-delay:${i*0.06}s"><div><div class="pos-name-main">${name}</div><div class="pos-ticker-line">${p.ticker}</div>${src}</div><div class="pos-num">${fusd(p.current_price)}</div><div class="pnl ${up?'up':'dn'}">${fpct(p.pnl_pct)}</div><div><div class="wbar-wrap"><div class="wbar"><div class="wfill" style="width:${Math.min(p.weight_actual||0,100)}%"></div></div><span class="wpct">${f2(p.weight_actual||0)} %</span></div></div><div style="font-size:12px;color:var(--text3)">${p.asset_type==='etf'?'ETF':'Action'}</div></div>`;
+    const isScreener=p.source==='screener';
+    const src=isScreener
+      ?'<span class="badge badge-screener">Screener</span>'
+      :'<span class="badge badge-macroetf">MacroETF</span>';
+
+    if(isScreener){
+      screenerCount++;
+      // Action masquée — nom et ticker cachés
+      return `<div class="pos-row" style="animation-delay:${i*0.06}s">
+        <div>
+          <div class="pos-name-main locked">🔒 Action Screener #${screenerCount}</div>
+          <div class="pos-ticker-line locked-sub">Ticker réservé aux abonnés</div>
+          ${src}
+        </div>
+        <div class="pos-num">—</div>
+        <div class="pnl">—</div>
+        <div><div class="wbar-wrap"><div class="wbar"><div class="wfill" style="width:${Math.min(p.weight_actual||0,100)}%"></div></div><span class="wpct">${f2(p.weight_actual||0)} %</span></div></div>
+        <div style="font-size:12px;color:var(--text3)">Action</div>
+      </div>`;
+    } else {
+      // ETF macroETF — visible
+      const name=p.name.length>28?p.name.slice(0,28)+'…':p.name;
+      return `<div class="pos-row" style="animation-delay:${i*0.06}s">
+        <div>
+          <div class="pos-name-main">${name}</div>
+          <div class="pos-ticker-line">${p.ticker}</div>
+          ${src}
+        </div>
+        <div class="pos-num">${fusd(p.current_price)}</div>
+        <div class="pnl ${up?'up':'dn'}">${fpct(p.pnl_pct)}</div>
+        <div><div class="wbar-wrap"><div class="wbar"><div class="wfill" style="width:${Math.min(p.weight_actual||0,100)}%"></div></div><span class="wpct">${f2(p.weight_actual||0)} %</span></div></div>
+        <div style="font-size:12px;color:var(--text3)">ETF</div>
+      </div>`;
+    }
   }).join('');
 }
 
