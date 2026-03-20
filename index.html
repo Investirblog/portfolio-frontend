@@ -268,15 +268,30 @@
 
   <div class="sidebar">
     <div class="cta-card">
-      <h3>Voir le raisonnement complet</h3>
-      <p>Les abonnés accèdent au détail analytique de chaque position.</p>
+      <h3>Accéder au portefeuille complet</h3>
+      <p>Les abonnés premium voient les 5 actions du screener, les scores quantitatifs et le raisonnement derrière chaque position.</p>
       <ul class="cta-list">
-        <li>Score quantitatif (Quality, Value, Momentum…)</li>
+        <li>5 actions screener dévoilées</li>
+        <li>Score quantitatif détaillé (Quality, Value, Momentum…)</li>
         <li>Signal macroETF associé à chaque ETF</li>
-        <li>Alertes email à chaque mouvement</li>
         <li>Historique complet des décisions</li>
       </ul>
-      <a href="https://www.investir.blog/s/premium" class="cta-btn">Accéder — S'abonner</a>
+      <a href="https://www.investir.blog/s/premium" class="cta-btn">S'abonner à la newsletter →</a>
+    </div>
+
+    <div class="s-card" id="alert-card">
+      <div class="sec-title">Alertes email</div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;">Recevez un email à chaque mouvement du portefeuille. Réservé aux abonnés premium.</p>
+      <div id="alert-form">
+        <input type="email" id="alert-email" placeholder="votre@email.com" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;border-radius:4px;margin-bottom:10px;outline:none;">
+        <input type="text" id="alert-code" placeholder="Code abonné Substack" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;border-radius:4px;margin-bottom:12px;outline:none;">
+        <button onclick="subscribeAlert()" style="width:100%;padding:12px;background:var(--bg4);border:1px solid var(--border);color:var(--text);font-family:'Open Sans',sans-serif;font-size:13px;font-weight:700;border-radius:4px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='var(--bg4)'">S'inscrire aux alertes</button>
+        <p style="font-size:11px;color:var(--text3);margin-top:10px;text-align:center;">Votre code abonné se trouve dans votre espace Substack.</p>
+      </div>
+      <div id="alert-success" style="display:none;text-align:center;padding:16px 0;">
+        <p style="color:var(--green);font-size:14px;font-weight:600;">✓ Inscription confirmée !</p>
+        <p style="color:var(--text2);font-size:12px;margin-top:6px;">Vous recevrez une alerte à chaque mouvement.</p>
+      </div>
     </div>
 
     <div class="s-card">
@@ -396,7 +411,13 @@ function renderPos(positions){
 function renderTx(txs){
   const body=document.getElementById('tx-body');
   if(!txs.length){body.innerHTML='<div class="error">Aucune transaction.</div>';return;}
-  body.innerHTML=txs.slice(0,6).map((tx,i)=>`<div class="tx" style="animation-delay:${i*0.08}s"><div class="tx-top"><span class="tx-ticker">${tx.ticker}</span><span class="tx-badge ${tx.transaction_type}">${tx.transaction_type==='buy'?'Achat':tx.transaction_type==='sell'?'Vente':'Rééquilibrage'}</span></div><div class="tx-meta">${new Date(tx.executed_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})} · ${tx.shares} parts · ${fusd(tx.price)}/part</div></div>`).join('');
+  body.innerHTML=txs.slice(0,6).map((tx,i)=>{
+    const d=new Date(tx.executed_at);
+    const dateStr=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
+    const sharesStr=parseFloat(tx.shares).toFixed(2)+' parts';
+    const typeLabel=tx.transaction_type==='buy'?'Achat':tx.transaction_type==='sell'?'Vente':'Rééquil.';
+    return `<div class="tx" style="animation-delay:${i*0.08}s"><div class="tx-top"><span class="tx-ticker">${tx.ticker}</span><span class="tx-badge ${tx.transaction_type}">${typeLabel}</span></div><div class="tx-meta">${dateStr} · ${sharesStr} · ${fusd(tx.price)}/part</div></div>`;
+  }).join('');
 }
 
 function renderMetrics(p){
@@ -410,6 +431,28 @@ function renderMetrics(p){
   set('m-dd',p.max_drawdown!=null?`-${f2(p.max_drawdown)} %`:'—',p.max_drawdown>0?'neg':'');
   document.getElementById('m-vol').textContent=`Volatilité : ${p.volatility_annual!=null?f2(p.volatility_annual)+' %':'—'}`;
   set('m-sharpe',p.sharpe_ratio!=null?f2(p.sharpe_ratio):'—',cls(p.sharpe_ratio));
+}
+
+async function subscribeAlert(){
+  const email = document.getElementById('alert-email').value.trim();
+  const code  = document.getElementById('alert-code').value.trim();
+  if(!email){ alert('Veuillez entrer votre adresse email.'); return; }
+  if(!code){  alert('Veuillez entrer votre code abonné Substack.'); return; }
+  try {
+    const resp = await fetch(`${API}/subscribers`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email, name: code, source: 'portfolio-site'})
+    });
+    if(resp.ok || resp.status===400){
+      document.getElementById('alert-form').style.display='none';
+      document.getElementById('alert-success').style.display='block';
+    } else {
+      alert('Une erreur est survenue, veuillez réessayer.');
+    }
+  } catch(e) {
+    alert('Une erreur est survenue, veuillez réessayer.');
+  }
 }
 
 async function init(){
